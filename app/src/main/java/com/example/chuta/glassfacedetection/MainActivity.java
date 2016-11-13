@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
@@ -17,10 +18,11 @@ import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
+import org.opencv.contrib.FaceRecognizer;
 
 import android.app.Activity;
 import android.content.Context;
-import android.hardware.Camera;
+import android.hardware.camera2.params.Face;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.GestureDetector;
@@ -38,9 +40,11 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     private File mCascadeFile;
     private CascadeClassifier mJavaDetector;
     private CameraView mOpenCvCameraView;
+    public List<FaceRecognizer> mTrainedFaces;
 
     private float mRelativeFaceSize = 0.2f;
     private int mAbsoluteFaceSize = 0;
+    private float mScaleFactor = 1.1f; //approach 1 for more accuracy w/ more time
 
     private GestureDetector mGestureDetector;
 
@@ -128,6 +132,9 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         {
             mOpenCvCameraView.disableView();
         }
+
+
+
     }
 
     /**
@@ -246,10 +253,8 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
 
         if (mJavaDetector != null)
         {
-            mJavaDetector.detectMultiScale(mGray, faces, 1.1, 2, 2, // TODO: objdetect.CV_HAAR_SCALE_IMAGE
+            mJavaDetector.detectMultiScale(mGray, faces, mScaleFactor, 2, 2, // TODO: objdetect.CV_HAAR_SCALE_IMAGE
                     new Size(mAbsoluteFaceSize, mAbsoluteFaceSize), new Size());
-
-
         }
 
         // Draw rectangles
@@ -369,4 +374,6 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
 
         return false;
     }
+
+
 }
