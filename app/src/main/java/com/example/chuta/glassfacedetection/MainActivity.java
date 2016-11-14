@@ -3,6 +3,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -10,6 +11,7 @@ import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfRect;
@@ -22,31 +24,43 @@ import org.opencv.contrib.FaceRecognizer;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
 import android.hardware.camera2.params.Face;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity implements CvCameraViewListener2, GestureDetector.OnGestureListener
 {
     private static final String TAG = "com.example.c";
     private static final Scalar FACE_RECT_COLOR = new Scalar(255, 255, 255, 255); // white
+    private static final Scalar FACE_SPECIAL_RECT_COLOR = new Scalar(255, 0, 0, 255); // white
 
     private Mat mRgba;
     private Mat mGray;
     private File mCascadeFile;
     private CascadeClassifier mJavaDetector;
     private CameraView mOpenCvCameraView;
-    public List<FaceRecognizer> mTrainedFaces;
+    public ArrayList<FaceRecognizer> mTrainedFaces;
+    private Rect[] mFacesArray;
+    private int mSelectedRectId;
+    private ArrayList<Mat> mats;
+    private Mat mCurrentMat;
 
     private float mRelativeFaceSize = 0.2f;
     private int mAbsoluteFaceSize = 0;
     private float mScaleFactor = 1.1f; //approach 1 for more accuracy w/ more time
 
     private GestureDetector mGestureDetector;
+    private boolean mTrainingEnabled;
+    private boolean mTrainingRectSelect;
+    private int mTrainingImageCount;
 
     /**
      * Constructor
@@ -70,9 +84,12 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
 
         // Important for Google Glass
         mGestureDetector = new GestureDetector(this, this);
-
+        mTrainingEnabled = false;
+        mTrainingRectSelect = false;
+        mTrainingImageCount = 0;
         mOpenCvCameraView = (CameraView) findViewById(R.id.fd_activity_surface_view);
-
+        mSelectedRectId = 0;
+        mats = new ArrayList<Mat>();
         mOpenCvCameraView.setCvCameraViewListener(this);
     }
 
@@ -239,7 +256,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     {
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
-
+        mCurrentMat = mRgba.clone();
         if (mAbsoluteFaceSize == 0)
         {
             int height = mGray.rows();
@@ -258,13 +275,11 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         }
 
         // Draw rectangles
-        Rect[] facesArray = faces.toArray();
-        for (int i = 0; i < facesArray.length; i++)
+        mFacesArray = faces.toArray();
+        for (int i = 0; i < mFacesArray.length; i++)
         {
-         //   imgproc
-            Imgproc.rectangle(mRgba, facesArray[i].tl(), facesArray[i].br(), FACE_RECT_COLOR, 3);
+            Imgproc.rectangle(mRgba, mFacesArray[i].tl(), mFacesArray[i].br(), FACE_RECT_COLOR, 3);
         }
-
         return mRgba;
     }
 
@@ -322,6 +337,36 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     @Override
     public boolean onSingleTapUp(MotionEvent e)
     {
+        if (mTrainingEnabled && !mTrainingRectSelect)
+        {
+            if (mTrainingImageCount <= 8) {
+                mOpenCvCameraView.disableView();
+                updateImageview(mCurrentMat, mFacesArray, mSelectedRectId);
+                mTrainingRectSelect = true;
+            } else
+            {
+                //TODO error
+            }
+        }
+        else if (mTrainingEnabled && mTrainingRectSelect)
+        {
+            if (mTrainingImageCount <= 8) {
+                Mat mat = new Mat();
+                mats.add(FaceTrainer.PrepareImage(mCurrentMat, mFacesArray[mSelectedRectId], new Size(100,100)));
+                Toast.makeText(getApplicationContext(), String.format("Image: %d", mTrainingImageCount), Toast.LENGTH_SHORT).show();
+                mTrainingImageCount++;
+                mTrainingRectSelect = false;
+                mOpenCvCameraView.enableView();
+            }
+            if (mTrainingImageCount == 8)
+            {
+                Mat finalMat = FaceTrainer.CombineMats(mats, new Size(4,2));
+
+
+//                mTrainedFaces.add(recognizer);
+                mTrainingEnabled = false;
+            }
+        }
         return false;
     }
 
@@ -340,7 +385,17 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
      * @see android.view.GestureDetector.OnGestureListener#onLongPress(android.view.MotionEvent)
      */
     @Override
-    public void onLongPress(MotionEvent e) { }
+    public void onLongPress(MotionEvent e)
+    {
+        if (mTrainingEnabled) {
+            mTrainingEnabled = false;
+            Toast.makeText(getApplicationContext(), "Training Mode Disabled", Toast.LENGTH_SHORT).show();
+        } else
+        {
+            mTrainingEnabled = true;
+            Toast.makeText(getApplicationContext(), "Training Mode Enabled. Get 8 images of the person", Toast.LENGTH_SHORT).show();
+        }
+    }
 
     /**
      * Special Thanks:
@@ -354,20 +409,35 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY)
     {
         float size = mRelativeFaceSize;
-        if (velocityX < 0.0f) // swipe forward
+        if (mTrainingRectSelect)
         {
-            size -= 0.1f;
-            if (size < 0.2f)
+            if (velocityX < 0.0f) // swipe forward
             {
-                size = 0.2f;
+                if (mSelectedRectId < mFacesArray.length-1) {
+                    mSelectedRectId++;
+                }
             }
-        }
-        else if (velocityX > 0.0f) // swipe backward
-        {
-            size += 0.1f;
-            if (size > 0.8f)
+            else if (velocityX > 0.0f) // swipe backward
             {
-                size = 0.8f;
+                if (mSelectedRectId > 0) {
+                    mSelectedRectId--;
+                }
+            }
+            updateImageview(mCurrentMat, mFacesArray, mSelectedRectId);
+        }
+        else {
+            if (velocityX < 0.0f) // swipe forward
+            {
+                size -= 0.1f;
+                if (size < 0.2f) {
+                    size = 0.2f;
+                }
+            } else if (velocityX > 0.0f) // swipe backward
+            {
+                size += 0.1f;
+                if (size > 0.8f) {
+                    size = 0.8f;
+                }
             }
         }
         setMinFaceSize(size);
@@ -375,5 +445,21 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         return false;
     }
 
+    //focusRect -> what rect is selected, use different color
+    private void updateImageview(Mat m, Rect[] rects, int focusRect)
+    {
+        for (int i = 0; i < rects.length; i++)
+        {
+            if (i == focusRect) {
+                Imgproc.rectangle(m, rects[i].tl(), rects[i].br(), FACE_SPECIAL_RECT_COLOR, 3);
+            } else {
+                Imgproc.rectangle(m, rects[i].tl(), rects[i].br(), FACE_RECT_COLOR, 3);
+            }
+        }
+        Bitmap bm = Bitmap.createBitmap(m.cols(), m.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(m, bm);
+        ImageView iv = (ImageView)findViewById(R.id.imageView);
+        iv.setImageBitmap(bm);
+    }
 
 }
