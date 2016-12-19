@@ -3,9 +3,12 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.bytedeco.javacpp.opencv_core;
+import org.bytedeco.javacpp.opencv_face;
 import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewFrame;
 import org.opencv.android.CameraBridgeViewBase.CvCameraViewListener2;
@@ -18,9 +21,14 @@ import org.opencv.core.MatOfRect;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 import org.opencv.contrib.FaceRecognizer;
+
+import static org.bytedeco.javacpp.opencv_face.*;
+import static org.bytedeco.javacpp.opencv_core.*;
+
 
 import android.app.Activity;
 import android.content.Context;
@@ -36,6 +44,10 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+//TODO
+/* Save trained file, load via javacv and train model...*/
+
+
 public class MainActivity extends Activity implements CvCameraViewListener2, GestureDetector.OnGestureListener
 {
     private static final String TAG = "com.example.c";
@@ -47,12 +59,11 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     private File mCascadeFile;
     private CascadeClassifier mJavaDetector;
     private CameraView mOpenCvCameraView;
-    public ArrayList<FaceRecognizer> mTrainedFaces;
+    public ArrayList<opencv_face.FaceRecognizer> mTrainedFaces;
     private Rect[] mFacesArray;
     private int mSelectedRectId;
     private ArrayList<Mat> mats;
     private Mat mCurrentMat;
-
     private float mRelativeFaceSize = 0.2f;
     private int mAbsoluteFaceSize = 0;
     private float mScaleFactor = 1.1f; //approach 1 for more accuracy w/ more time
@@ -355,15 +366,22 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
                 mats.add(FaceTrainer.PrepareImage(mCurrentMat, mFacesArray[mSelectedRectId], new Size(100,100)));
                 Toast.makeText(getApplicationContext(), String.format("Image: %d", mTrainingImageCount), Toast.LENGTH_SHORT).show();
                 mTrainingImageCount++;
+
                 mTrainingRectSelect = false;
                 mOpenCvCameraView.enableView();
             }
             if (mTrainingImageCount == 8)
             {
-                Mat finalMat = FaceTrainer.CombineMats(mats, new Size(4,2));
-
-
-//                mTrainedFaces.add(recognizer);
+                MatVector matVector = CVLibTools.omatsToJmats(mats);
+                opencv_core.Mat labelVector = new opencv_core.Mat(mats.size(), 1, CV_32SC1);
+                IntBuffer labelBuffer = labelVector.createBuffer();
+                for (int i=0; i<mats.size(); i++)
+                {
+                    labelBuffer.put(i, 0);
+                }
+                opencv_face.FaceRecognizer faceRecognizer = createFisherFaceRecognizer(); //can be Eigen or LBPH, not sure
+                faceRecognizer.train(matVector, labelVector);
+                mTrainedFaces.add(faceRecognizer);
                 mTrainingEnabled = false;
             }
         }

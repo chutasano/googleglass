@@ -24,10 +24,14 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    packagingOptions {
+        pickFirst 'org/bytedeco/javacpp/macosx-x86-64/libusb-1.0.dylib'
+    }
 }
 
 dependencies {
     compile fileTree(include: ['*.jar'], dir: 'libs')
     compile project(':openCVLibrary310')
     compile files('libs/armeabi-v7a.jar')
+    compile group: 'org.bytedeco', name: 'javacv-platform', version: '1.3'
 }

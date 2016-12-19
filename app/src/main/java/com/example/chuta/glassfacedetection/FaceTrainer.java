@@ -41,7 +41,7 @@ public class FaceTrainer {
 
     // mats must all be same size
     // matSize must be possible (ie: matSize width height are factors of mats.length
-    public static Mat CombineMats(List<Mat> mats, Size matSize) {
+    public static Mat CombineMats(List<Mat> mats, int width) {
         if (safeRun) {
             Size actualSize = mats.get(0).size();
             for (Mat m : mats) {
@@ -50,22 +50,18 @@ public class FaceTrainer {
                     return null;
                 }
             }
-            if (matSize.area() != mats.size()) {
+            if (width != mats.size()) {
                 Log.e(tag, "CombineMats: Bad matSize");
                 return null;
             }
         }
         Mat image = new Mat();
-        ArrayList<Mat> rows = new ArrayList<Mat>();
-        for (int i = 0; i < matSize.height; i++) {
-            ArrayList<Mat> onerow = new ArrayList<Mat>();
-            for (int j = 0; j < matSize.width; j++) {
-                onerow.add(j, mats.get(j + i * (int) Math.floor(i / matSize.width)));
-            }
-            rows.add(new Mat());
-            Core.hconcat(onerow, rows.get(i));
+        ArrayList<Mat> row = new ArrayList<Mat>();
+        for (Mat m : mats)
+        {
+            row.add(m);
         }
-        Core.vconcat(rows, image);
+        Core.hconcat(row, image);
         return image;
     }
 
