@@ -25,7 +25,7 @@ android {
         }
     }
     packagingOptions {
-        pickFirst 'org/bytedeco/javacpp/macosx-x86-64/libusb-1.0.dylib'
+        pickFirst 'org/bytedeco/javacpp/macosx-x86_64/libusb-1.0.dylib'
     }
 }
 

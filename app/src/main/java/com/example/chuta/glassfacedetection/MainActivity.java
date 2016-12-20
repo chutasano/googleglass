@@ -59,14 +59,14 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     private File mCascadeFile;
     private CascadeClassifier mJavaDetector;
     private CameraView mOpenCvCameraView;
-    public ArrayList<opencv_face.FaceRecognizer> mTrainedFaces;
+    public  opencv_face.FaceRecognizer mTrainedFaces;
     private Rect[] mFacesArray;
     private int mSelectedRectId;
     private ArrayList<Mat> mats;
     private Mat mCurrentMat;
     private float mRelativeFaceSize = 0.2f;
-    private int mAbsoluteFaceSize = 0;
-    private float mScaleFactor = 1.1f; //approach 1 for more accuracy w/ more time
+    private int mAbsoluteFaceSize = 360/5;
+    private float mScaleFactor = 1.2f; //approach 1 for more accuracy w/ more time
 
     private GestureDetector mGestureDetector;
     private boolean mTrainingEnabled;
@@ -159,6 +159,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         if (mOpenCvCameraView != null)
         {
             mOpenCvCameraView.disableView();
+            mOpenCvCameraView.freeCamera();
         }
 
 
@@ -268,14 +269,6 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
         mCurrentMat = mRgba.clone();
-        if (mAbsoluteFaceSize == 0)
-        {
-            int height = mGray.rows();
-            if (Math.round(height * mRelativeFaceSize) > 0)
-            {
-                mAbsoluteFaceSize = Math.round(height * mRelativeFaceSize);
-            }
-        }
 
         MatOfRect faces = new MatOfRect();
 
@@ -284,13 +277,25 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
             mJavaDetector.detectMultiScale(mGray, faces, mScaleFactor, 2, 2, // TODO: objdetect.CV_HAAR_SCALE_IMAGE
                     new Size(mAbsoluteFaceSize, mAbsoluteFaceSize), new Size());
         }
-
         // Draw rectangles
         mFacesArray = faces.toArray();
-        for (int i = 0; i < mFacesArray.length; i++)
+        if (mTrainedFaces != null) //also recognize faces
         {
-            Imgproc.rectangle(mRgba, mFacesArray[i].tl(), mFacesArray[i].br(), FACE_RECT_COLOR, 3);
+            for (int i = 0; i < mFacesArray.length; i++)
+            {
+                int r = mTrainedFaces.predict(CVLibTools.ocvToJcv(new Mat(mGray, mFacesArray[i])));
+                Imgproc.putText(mRgba, Integer.toString(r), mFacesArray[i].tl(), FONT_HERSHEY_COMPLEX, 2.0, new Scalar(20,20,20), 2);
+                Imgproc.rectangle(mRgba, mFacesArray[i].tl(), mFacesArray[i].br(), FACE_RECT_COLOR, 3);
+            }
         }
+        else
+        {
+            for (int i = 0; i < mFacesArray.length; i++)
+            {
+                Imgproc.rectangle(mRgba, mFacesArray[i].tl(), mFacesArray[i].br(), FACE_RECT_COLOR, 3);
+            }
+        }
+
         return mRgba;
     }
 
@@ -301,7 +306,14 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     private void setMinFaceSize(float faceSize)
     {
         mRelativeFaceSize = faceSize;
-        mAbsoluteFaceSize = 0;
+        if (mAbsoluteFaceSize == 0)
+        {
+            int height = 360;
+            if (Math.round(height * mRelativeFaceSize) > 0)
+            {
+                mAbsoluteFaceSize = Math.round(height * mRelativeFaceSize);
+            }
+        }
 
         Toast.makeText(this, String.format("Face size: %.0f%%", mRelativeFaceSize*100.0f), Toast.LENGTH_SHORT).show();
     }
@@ -379,11 +391,16 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
                 {
                     labelBuffer.put(i, 0);
                 }
-                opencv_face.FaceRecognizer faceRecognizer = createFisherFaceRecognizer(); //can be Eigen or LBPH, not sure
-                faceRecognizer.train(matVector, labelVector);
-                mTrainedFaces.add(faceRecognizer);
+                if (mTrainedFaces == null) {
+                    mTrainedFaces = createFisherFaceRecognizer(); //can be Eigen or LBPH, not sure
+                }
+                mTrainedFaces.train(matVector, labelVector);
                 mTrainingEnabled = false;
             }
+        }
+        else
+        {
+            finish();
         }
         return false;
     }
@@ -479,5 +496,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         ImageView iv = (ImageView)findViewById(R.id.imageView);
         iv.setImageBitmap(bm);
     }
+
+
 
 }

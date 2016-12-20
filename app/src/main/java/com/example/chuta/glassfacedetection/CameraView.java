@@ -7,6 +7,7 @@ import org.opencv.android.JavaCameraView;
 import android.content.Context;
 import android.hardware.Camera;
 import android.util.AttributeSet;
+import android.util.Log;
 
 public class CameraView extends JavaCameraView
 {
@@ -29,6 +30,12 @@ public class CameraView extends JavaCameraView
         params.setPreviewFpsRange(30000, 30000);
         mCamera.setParameters(params);
 
+        Log.d("CameraView", "Hello?");
         return true;
+    }
+
+    public void freeCamera()
+    {
+        mCamera.release();
     }
 }
