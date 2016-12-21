@@ -424,6 +424,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     {
         if (mTrainingEnabled) {
             mTrainingEnabled = false;
+            mats.clear();
             Toast.makeText(getApplicationContext(), "Training Mode Disabled", Toast.LENGTH_SHORT).show();
         } else
         {
