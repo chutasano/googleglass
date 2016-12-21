@@ -1,6 +1,7 @@
 package com.example.chuta.glassfacedetection;
 
 import android.graphics.Bitmap;
+import android.util.Log;
 
 import org.bytedeco.javacpp.opencv_core;
 import org.bytedeco.javacv.AndroidFrameConverter;
@@ -27,6 +28,7 @@ public class CVLibTools {
         opencv_core.MatVector newMats = new opencv_core.MatVector(mats.size());
         for (Mat m : mats)
         {
+            Log.d("CVLibTools", "Mat added");
             newMats.put(0, ocvToJcv(m)); //TODO what does the 0 do?
         }
         return newMats;
@@ -47,7 +49,7 @@ public class CVLibTools {
 
     private static Bitmap ocvToBmp(Mat source)
     {
-        Bitmap bmp = Bitmap.createBitmap(source.rows(), source.cols(),Bitmap.Config.ARGB_8888);
+        Bitmap bmp = Bitmap.createBitmap(source.rows(), source.cols(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(source, bmp);
         return bmp;
     }

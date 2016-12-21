@@ -26,6 +26,8 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
 import org.opencv.contrib.FaceRecognizer;
 
+import static android.view.View.INVISIBLE;
+import static android.view.View.VISIBLE;
 import static org.bytedeco.javacpp.opencv_face.*;
 import static org.bytedeco.javacpp.opencv_core.*;
 
@@ -52,7 +54,8 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
 {
     private static final String TAG = "com.example.c";
     private static final Scalar FACE_RECT_COLOR = new Scalar(255, 255, 255, 255); // white
-    private static final Scalar FACE_SPECIAL_RECT_COLOR = new Scalar(255, 0, 0, 255); // white
+    private static final Scalar FACE_SPECIAL_RECT_COLOR = new Scalar(255, 0, 0, 255); // red
+    private static final int IMG_COUNT = 2; //number of images used for training higher = more reliable but slower
 
     private Mat mRgba;
     private Mat mGray;
@@ -66,7 +69,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     private Mat mCurrentMat;
     private float mRelativeFaceSize = 0.2f;
     private int mAbsoluteFaceSize = 360/5;
-    private float mScaleFactor = 1.2f; //approach 1 for more accuracy w/ more time
+    private float mScaleFactor = 1.25f; //approach 1 for more accuracy w/ more time
 
     private GestureDetector mGestureDetector;
     private boolean mTrainingEnabled;
@@ -161,9 +164,6 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
             mOpenCvCameraView.disableView();
             mOpenCvCameraView.freeCamera();
         }
-
-
-
     }
 
     /**
@@ -362,10 +362,21 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     {
         if (mTrainingEnabled && !mTrainingRectSelect)
         {
-            if (mTrainingImageCount <= 8) {
-                mOpenCvCameraView.disableView();
-                updateImageview(mCurrentMat, mFacesArray, mSelectedRectId);
-                mTrainingRectSelect = true;
+            if (mTrainingImageCount <= IMG_COUNT) {
+                if (mFacesArray.length > 0) {
+                    mOpenCvCameraView.disableView();
+                    mSelectedRectId = 0;
+                    mTrainingRectSelect = true;
+                    updateImageview(mCurrentMat, mFacesArray, mSelectedRectId);
+                    ImageView iv = (ImageView)findViewById(R.id.imageView);
+                    iv.setVisibility(VISIBLE);
+                    mOpenCvCameraView.setVisibility(INVISIBLE);
+                }
+                else
+                {
+                    Toast.makeText(getApplicationContext(), "No faces detected in this image", Toast.LENGTH_SHORT).show();
+                }
+                //if no faces in image, just ignore request
             } else
             {
                 //TODO error
@@ -373,19 +384,21 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         }
         else if (mTrainingEnabled && mTrainingRectSelect)
         {
-            if (mTrainingImageCount <= 8) {
+            if (mTrainingImageCount <= IMG_COUNT) {
                 Mat mat = new Mat();
                 mats.add(FaceTrainer.PrepareImage(mCurrentMat, mFacesArray[mSelectedRectId], new Size(100,100)));
-                Toast.makeText(getApplicationContext(), String.format("Image: %d", mTrainingImageCount), Toast.LENGTH_SHORT).show();
-                mTrainingImageCount++;
+                Toast.makeText(getApplicationContext(), String.format("Image: %d", ++mTrainingImageCount), Toast.LENGTH_SHORT).show();
 
                 mTrainingRectSelect = false;
                 mOpenCvCameraView.enableView();
+                ImageView iv = (ImageView)findViewById(R.id.imageView);
+                iv.setVisibility(INVISIBLE);
+                mOpenCvCameraView.setVisibility(VISIBLE);
             }
-            if (mTrainingImageCount == 8)
+            if (mTrainingImageCount == IMG_COUNT)
             {
-                MatVector matVector = CVLibTools.omatsToJmats(mats);
                 opencv_core.Mat labelVector = new opencv_core.Mat(mats.size(), 1, CV_32SC1);
+                MatVector matVector = CVLibTools.omatsToJmats(mats);
                 IntBuffer labelBuffer = labelVector.createBuffer();
                 for (int i=0; i<mats.size(); i++)
                 {
@@ -395,7 +408,12 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
                     mTrainedFaces = createFisherFaceRecognizer(); //can be Eigen or LBPH, not sure
                 }
                 mTrainedFaces.train(matVector, labelVector);
+                mOpenCvCameraView.enableView();
+                ImageView iv = (ImageView)findViewById(R.id.imageView);
+                iv.setVisibility(INVISIBLE);
+                mOpenCvCameraView.setVisibility(VISIBLE);
                 mTrainingEnabled = false;
+                mTrainingRectSelect = false;
             }
         }
         else
@@ -429,7 +447,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         } else
         {
             mTrainingEnabled = true;
-            Toast.makeText(getApplicationContext(), "Training Mode Enabled. Get 8 images of the person", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getApplicationContext(), "Training Mode Enabled. Get " + Integer.toString(IMG_COUNT) +  " images of the person", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -475,8 +493,8 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
                     size = 0.8f;
                 }
             }
+            setMinFaceSize(size);
         }
-        setMinFaceSize(size);
 
         return false;
     }
@@ -488,6 +506,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         {
             if (i == focusRect) {
                 Imgproc.rectangle(m, rects[i].tl(), rects[i].br(), FACE_SPECIAL_RECT_COLOR, 3);
+                Log.d(TAG, "updateImageview: Selected rectangle is " + Integer.toString(focusRect));
             } else {
                 Imgproc.rectangle(m, rects[i].tl(), rects[i].br(), FACE_RECT_COLOR, 3);
             }
