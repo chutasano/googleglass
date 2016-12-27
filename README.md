@@ -1,22 +1,15 @@
-Major TODO
-Fix nullpointerexception
-Check saving of Mats?
-yet another bug!
-```
-2-21 15:10:31.765 24461-24461/com.example.chuta.glassfacedetection E/MessageQueue-JNI: java.lang.NullPointerException
-                                                                                            at com.example.chuta.glassfacedetection.CVLibTools.ocvToBmp(CVLibTools.java:52)
-                                                                                            at com.example.chuta.glassfacedetection.CVLibTools.ocvToJcv(CVLibTools.java:41)
-                                                                                            at com.example.chuta.glassfacedetection.CVLibTools.omatsToJmats(CVLibTools.java:32)
-                                                                                            at com.example.chuta.glassfacedetection.MainActivity.onSingleTapUp(MainActivity.java:401)
-```
-write about importing javacv
+##GlassFaceDetection + Recognition
 
 
-GlassFaceDetection
-
-Soon to be GlassFaceRecognition
-
-TODOs: Test functionality, better UI, more documentation, better naming scheme for trained faces, save trained faces, clean up code
+TODOs:
+- Test functionality
+- better UI
+- more documentation
+- better naming scheme for trained faces
+- save trained faces
+- clean up code
+- fix on crash camera disposal
+- Faceselection mode highlight box color
 
 Cool features:
 1) actually frees the camera. OpenCV documentation does not cover this.
@@ -24,7 +17,7 @@ Cool features:
 3) Merges OpenCV and JavaCV together
 
 
-Usage: run app
+###Usage: run app
 
 Face Detection + Recognition Mode: by default
 - swipe left/right to change minimum face size (higher the faster)
@@ -38,7 +31,7 @@ Face Training mode:
 - long tap to exit/cancel
 
 Face Selection mode:
-- a static image frame with detected face rectangles
+- a static gray image frame with detected face rectangles
 - swipe left/right to highlight the face you want to recognize (red rectangle)
 - short tap to remember selected rectangle as a face
 - TODO: allow cancellation
@@ -74,7 +67,9 @@ android {
     ...
 
     packagingOptions {
-       pickFirst 'org/bytedeco/javacpp/macosx-x86_64/libusb-1.0.dylib'
+       pickFirst 'blabla'
    }
 }
 ```
+
+See my build.gradle for an example

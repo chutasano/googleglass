@@ -31,7 +31,6 @@ public class FaceTrainer {
             }
             if (crop.width < newSize.width || crop.height < newSize.height) {
                 Log.d(tag, "PrepareImage: Requires expanding given image. Consider feeding one that is more zoomed in");
-                return null;
             }
         }
         Mat image = new Mat();

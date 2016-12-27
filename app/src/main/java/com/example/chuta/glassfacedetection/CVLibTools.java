@@ -6,6 +6,7 @@ import android.util.Log;
 import org.bytedeco.javacpp.opencv_core;
 import org.bytedeco.javacv.AndroidFrameConverter;
 import org.bytedeco.javacv.OpenCVFrameConverter;
+import org.bytedeco.javacpp.opencv_imgproc;
 import org.opencv.android.Utils;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
@@ -26,11 +27,15 @@ public class CVLibTools {
     public static opencv_core.MatVector omatsToJmats(ArrayList<Mat> mats)
     {
         opencv_core.MatVector newMats = new opencv_core.MatVector(mats.size());
+        int i=0;
         for (Mat m : mats)
         {
+            opencv_core.Mat m2 = ocvToJcvg(m);
+            newMats.put(i, m2);
+            i++;
             Log.d("CVLibTools", "Mat added");
-            newMats.put(0, ocvToJcv(m)); //TODO what does the 0 do?
         }
+
         return newMats;
     }
 
@@ -40,6 +45,7 @@ public class CVLibTools {
     {
         return bmpToJcv(ocvToBmp(source));
     }
+    public static opencv_core.Mat ocvToJcvg(Mat source) { return bmpToJcvg(ocvToBmp(source)); }
 
     //javacv Mat -> opencv Mat
     public static Mat jcvToOcv(opencv_core.Mat source)
@@ -66,6 +72,16 @@ public class CVLibTools {
         OpenCVFrameConverter.ToMat frameConverter = new OpenCVFrameConverter.ToMat();
         AndroidFrameConverter bmpConverter = new AndroidFrameConverter();
         return frameConverter.convert(bmpConverter.convert(source));
+    }
+
+    private static opencv_core.Mat bmpToJcvg(Bitmap source)
+    {
+        OpenCVFrameConverter.ToMat frameConverter = new OpenCVFrameConverter.ToMat();
+        AndroidFrameConverter bmpConverter = new AndroidFrameConverter();
+        opencv_core.Mat bgr = frameConverter.convert(bmpConverter.convert(source));
+        opencv_core.Mat gray = new opencv_core.Mat();
+        opencv_imgproc.cvtColor(bgr, gray, opencv_imgproc.COLOR_BGRA2GRAY);
+        return gray;
     }
 
     private static Bitmap jcvToBmp(opencv_core.Mat source)

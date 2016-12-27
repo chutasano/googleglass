@@ -30,6 +30,7 @@ import static android.view.View.INVISIBLE;
 import static android.view.View.VISIBLE;
 import static org.bytedeco.javacpp.opencv_face.*;
 import static org.bytedeco.javacpp.opencv_core.*;
+import org.bytedeco.javacpp.opencv_imgproc;
 
 
 import android.app.Activity;
@@ -70,6 +71,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     private float mRelativeFaceSize = 0.2f;
     private int mAbsoluteFaceSize = 360/5;
     private float mScaleFactor = 1.25f; //approach 1 for more accuracy w/ more time
+    private Size recSize = new Size(128,128); //multiple of 16
 
     private GestureDetector mGestureDetector;
     private boolean mTrainingEnabled;
@@ -268,7 +270,7 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
     {
         mRgba = inputFrame.rgba();
         mGray = inputFrame.gray();
-        mCurrentMat = mRgba.clone();
+        mCurrentMat = mGray.clone();
 
         MatOfRect faces = new MatOfRect();
 
@@ -283,8 +285,9 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         {
             for (int i = 0; i < mFacesArray.length; i++)
             {
-                int r = mTrainedFaces.predict(CVLibTools.ocvToJcv(new Mat(mGray, mFacesArray[i])));
+                int r = mTrainedFaces.predict(CVLibTools.ocvToJcvg(FaceTrainer.PrepareImage(mGray, mFacesArray[i], recSize)));
                 Imgproc.putText(mRgba, Integer.toString(r), mFacesArray[i].tl(), FONT_HERSHEY_COMPLEX, 2.0, new Scalar(20,20,20), 2);
+                Log.d(TAG, "predicted face: " + Integer.toString(r));
                 Imgproc.rectangle(mRgba, mFacesArray[i].tl(), mFacesArray[i].br(), FACE_RECT_COLOR, 3);
             }
         }
@@ -385,8 +388,8 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
         else if (mTrainingEnabled && mTrainingRectSelect)
         {
             if (mTrainingImageCount <= IMG_COUNT) {
-                Mat mat = new Mat();
-                mats.add(FaceTrainer.PrepareImage(mCurrentMat, mFacesArray[mSelectedRectId], new Size(100,100)));
+
+                mats.add(FaceTrainer.PrepareImage(mCurrentMat, mFacesArray[mSelectedRectId], recSize));
                 Toast.makeText(getApplicationContext(), String.format("Image: %d", ++mTrainingImageCount), Toast.LENGTH_SHORT).show();
 
                 mTrainingRectSelect = false;
@@ -397,7 +400,10 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
             }
             if (mTrainingImageCount == IMG_COUNT)
             {
+                Toast.makeText(getApplicationContext(), String.format("Image: %d", ++mTrainingImageCount), Toast.LENGTH_SHORT).show();
+
                 opencv_core.Mat labelVector = new opencv_core.Mat(mats.size(), 1, CV_32SC1);
+
                 MatVector matVector = CVLibTools.omatsToJmats(mats);
                 IntBuffer labelBuffer = labelVector.createBuffer();
                 for (int i=0; i<mats.size(); i++)
@@ -405,15 +411,10 @@ public class MainActivity extends Activity implements CvCameraViewListener2, Ges
                     labelBuffer.put(i, 0);
                 }
                 if (mTrainedFaces == null) {
-                    mTrainedFaces = createFisherFaceRecognizer(); //can be Eigen or LBPH, not sure
+                    mTrainedFaces = createLBPHFaceRecognizer(); //can be Eigen or LBPH, not sure
                 }
                 mTrainedFaces.train(matVector, labelVector);
-                mOpenCvCameraView.enableView();
-                ImageView iv = (ImageView)findViewById(R.id.imageView);
-                iv.setVisibility(INVISIBLE);
-                mOpenCvCameraView.setVisibility(VISIBLE);
                 mTrainingEnabled = false;
-                mTrainingRectSelect = false;
             }
         }
         else
